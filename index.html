@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Educational IT Tetris</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron&display=swap');
+
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    color: white;
+    font-family: 'Orbitron', monospace, 'Courier New', Courier, monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+  h1 {
+    margin: 20px 0 10px;
+    font-weight: 900;
+    font-size: 3rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #16fdea;
+    text-shadow: 0 0 10px #16fdeaaa;
+  }
+  #game-container {
+    display: flex;
+    gap: 20px;
+  }
+  #tetris-canvas {
+    background: #111;
+    border: 4px solid #16fdea;
+    box-shadow: 0 0 15px #16fdea88;
+    image-rendering: pixelated;
+  }
+  #info-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 30px;
+    font-size: 1.25rem;
+    min-width: 220px;
+  }
+  #stars, #lives {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .star, .life {
+    width: 30px;
+    height: 30px;
+  }
+  .star svg path {
+    fill: #ffdd00;
+    filter: drop-shadow(0 0 4px #ffdd0088);
+  }
+  .life svg path {
+    fill: #ff4444;
+    filter: drop-shadow(0 0 6px #ff444488);
+  }
+
+  #question-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 10, 20, 0.95);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+  }
+  #question-box {
+    background: #111e2b;
+    border: 3px solid #16fdea;
+    padding: 25px 40px 30px;
+    max-width: 550px;
+    border-radius: 12px;
+    box-shadow: 0 0 20px #16fdeaaa;
+  }
+  #question-text {
+    font-size: 1.6rem;
+    margin-bottom: 20px;
+    color: #16fdea;
+    font-weight: 700;
+  }
+  .answer-btn {
+    display: block;
+    background: #203a43;
+    border: 2px solid #16fdea;
+    color: #16fdea;
+    padding: 12px 20px;
+    margin-bottom: 14px;
+    font-size: 1.3rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.25s ease, color 0.25s ease;
+    text-align: left;
+    user-select: none;
+  }
+  .answer-btn:hover,
+  .answer-btn:focus {
+    background: #16fdea;
+    color: #111;
+    outline: none;
+  }
+  #game-over-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 5, 5, 0.9);
+    color: #ff4444;
+    font-size: 3rem;
+    font-weight: 900;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    user-select: none;
+    z-index: 15;
+    text-shadow: 0 0 12px #ff4444dd;
+  }
+  #game-over-overlay button {
+    margin-top: 20px;
+    font-size: 1.5rem;
+    padding: 10px 25px;
+    background: #ff4444;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 0 10px #ff4444bb;
+    transition: background-color 0.3s ease;
+  }
+  #game-over-overlay button:hover {
+    background: #cc3333;
+  }
+
+  footer {
+    margin-top: auto;
+    font-size: 0.85rem;
+    color: #333a44dd;
+    padding: 15px 0;
+  }
+</style>
+</head>
+<body>
+<h1>IT Quiz Tetris</h1>
+<div id="game-container">
+  <canvas id="tetris-canvas" width="300" height="600" style="width:300px; height:600px;"></canvas>
+  <div id="info-panel">
+    <div id="stars">
+      Stars: <span id="star-count" style="margin-left:8px;">0</span>
+      <svg class="star" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.567 8.332 1.151-6.064 5.992 1.545 8.309L12 18.75 5.519 23.596l1.545-8.31-6.064-5.99 8.332-1.15z"/></svg>
+    </div>
+    <div id="lives">
+      Lives: <span id="life-count" style="margin-left:8px;">7</span>
+      <svg class="life" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    </div>
+  </div>
+</div>
+
+<div id="question-overlay" role="dialog" aria-modal="true" aria-labelledby="question-text">
+  <div id="question-box">
+    <div id="question-text"></div>
+    <div id="answers-container"></div>
+  </div>
+</div>
+
+<div id="game-over-overlay">
+  Game Over!<br/>
+  <button id="restart-btn" aria-label="Restart the game">Restart</button>
+</div>
+
+<script>
+(() => {
+  // Tetromino shapes and colors
+  const tetrominoes = {
+    I: {
+      shape: [
+        [[0,0,0,0],
+         [1,1,1,1],
+         [0,0,0,0],
+         [0,0,0,0]],
+        [[0,0,1,0],
+         [0,0,1,0],
+         [0,0,1,0],
+         [0,0,1,0]],
+      ],
+      color: '#00ffff',
+    },
+    J: {
+      shape: [
+        [[1,0,0],
+         [1,1,1],
+         [0,0,0]],
+        [[0,1,1],
+         [0,1,0],
+         [0,1,0]],
+        [[0,0,0],
+         [1,1,1],
+         [0,0,1]],
+        [[0,1,0],
+         [0,1,0],
+         [1,1,0]],
+      ],
+      color: '#0000ff',
+    },
+    L: {
+      shape: [
+        [[0,0,1],
+         [1,1,1],
+         [0,0,0]],
+        [[0,1,0],
+         [0,1,0],
+         [0,1,1]],
+        [[0,0,0],
+         [1,1,1],
+         [1,0,0]],
+        [[1,1,0],
+         [0,1,0],
+         [0,1,0]],
+      ],
+      color: '#ffa500',
+    },
+    O: {
+      shape: [
+        [[1,1],
+         [1,1]],
+      ],
+      color: '#ffff00',
+    },
+    S: {
+      shape: [
+        [[0,1,1],
+         [1,1,0],
+         [0,0,0]],
+        [[0,1,0],
+         [0,1,1],
+         [0,0,1]],
+      ],
+      color: '#00ff00',
+    },
+    T: {
+      shape: [
+        [[0,1,0],
+         [1,1,1],
+         [0,0,0]],
+        [[0,1,0],
+         [0,1,1],
+         [0,1,0]],
+        [[0,0,0],
+         [1,1,1],
+         [0,1,0]],
+        [[0,1,0],
+         [1,1,0],
+         [0,1,0]],
+      ],
+      color: '#800080',
+    },
+    Z: {
+      shape: [
+        [[1,1,0],
+         [0,1,1],
+         [0,0,0]],
+        [[0,0,1],
+         [0,1,1],
+         [0,1,0]],
+      ],
+      color: '#ff0000',
+    }
+  };
+
+  const COLS = 10;
+  const ROWS = 20;
+  const BLOCK_SIZE = 30; // pixels
+
+  // Canvas setup
+  const canvas = document.getElementById('tetris-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  // Game state
+  let arena = createMatrix(COLS, ROWS);
+  let currentPiece = null;
+  let currentPos = {x: 0, y: 0};
+  let currentRotation = 0;
+  let dropInterval = 1000;
+  let dropCounter = 0;
+  let lastTime = 0;
+  let gameOver = false;
+
+  let stars = 0;
+  let lives = 7;
+
+  // Questions database: IT related questions with choices and correct answer index
+  const questions = [
+    {
+      question: "O que significa a sigla 'HTML'?",
+      answers: [
+        "HyperText Markup Language",
+        "Hypertool Management Language",
+        "Hyperlink and Text Markup Language",
+        "Hyperlinking Text Management Language"
+      ],
+      correct: 0,
+    },
+    {
+      question: "Qual protocolo é usado para enviar emails?",
+      answers: [
+        "FTP",
+        "SMTP",
+        "HTTP",
+        "SNMP"
+      ],
+      correct: 1,
+    },
+    {
+      question: "Qual das seguintes linguagens é considerada uma linguagem de programação?",
+      answers: [
+        "HTML",
+        "CSS",
+        "JavaScript",
+        "SQL"
+      ],
+      correct: 2,
+    },
+    {
+      question: "O que é um 'IP' em redes?",
+      answers: [
+        "Internet Provider",
+        "Internal Protocol",
+        "Internet Protocol",
+        "Integrated Program"
+      ],
+      correct: 2,
+    },
+    {
+      question: "O que faz um firewall?",
+      answers: [
+        "Bloqueia ameaças de segurança",
+        "Acelera a conexão à internet",
+        "Armazena dados na nuvem",
+        "Aumenta a capacidade do CPU"
+      ],
+      correct: 0,
+    },
+    {
+      question: "O que significa 'CPU'?",
+      answers: [
+        "Central Processing Unit",
+        "Computer Personal Unit",
+        "Central Programming Utility",
+        "Computer Processing Utility"
+      ],
+      correct: 0,
+    },
+    {
+      question: "Qual sistema operacional é baseado em código aberto?",
+      answers: [
+        "Windows",
+        "macOS",
+        "Linux",
+        "iOS"
+      ],
+      correct: 2,
+    },
+    {
+      question: "Qual destes é um banco de dados relacional?",
+      answers: [
+        "MongoDB",
+        "PostgreSQL",
+        "Redis",
+        "Cassandra"
+      ],
+      correct: 1,
+    },
+    {
+      question: "O que é a nuvem (cloud computing)?",
+      answers: [
+        "Um tipo de hardware",
+        "Armazenamento e serviços pela internet",
+        "Um programa para desenhar",
+        "Um sistema operacional"
+      ],
+      correct: 1,
+    },
+    {
+      question: "Qual dispositivo conecta uma rede local à internet?",
+      answers: [
+        "Switch",
+        "Modem",
+        "Printer",
+        "Monitor"
+      ],
+      correct: 1,
+    }
+  ];
+
+  // UI Elements
+  const starCountEl = document.getElementById('star-count');
+  const lifeCountEl = document.getElementById('life-count');
+  const questionOverlay = document.getElementById('question-overlay');
+  const questionTextEl = document.getElementById('question-text');
+  const answersContainer = document.getElementById('answers-container');
+  const gameOverOverlay = document.getElementById('game-over-overlay');
+  const restartBtn = document.getElementById('restart-btn');
+
+  // Create matrix filled with 0
+  function createMatrix(w, h) {
+    const matrix = [];
+    for (let i = 0; i < h; i++) {
+      matrix.push(new Array(w).fill(0));
+    }
+    return matrix;
+  }
+
+  // Create a new random piece
+  function createPiece() {
+    const keys = Object.keys(tetrominoes);
+    const randKey = keys[Math.floor(Math.random() * keys.length)];
+    return {
+      type: randKey,
+      shape: tetrominoes[randKey].shape,
+      color: tetrominoes[randKey].color,
+    };
+  }
+
+  // Draw a cell at position with color
+  function drawCell(x, y, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    ctx.strokeStyle = '#00000055';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+  }
+
+  // Draw entire arena
+  function drawArena() {
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const cell = arena[y][x];
+        if (cell) {
+          drawCell(x, y, cell);
+        } else {
+          // Draw dark grid background
+          ctx.fillStyle = '#0a141f';
+          ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+          ctx.strokeStyle = '#111b27';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        }
+      }
+    }
+  }
+
+  // Draw the current piece
+  function drawPiece() {
+    const shapeMatrix = currentPiece.shape[currentRotation];
+    for (let y = 0; y < shapeMatrix.length; y++) {
+      for (let x = 0; x < shapeMatrix[y].length; x++) {
+        if (shapeMatrix[y][x]) {
+          drawCell(currentPos.x + x, currentPos.y + y, currentPiece.color);
+        }
+      }
+    }
+  }
+
+  // Check collision of piece with arena
+  function collide(posX, posY, rotation) {
+    const shapeMatrix = currentPiece.shape[rotation];
+    for (let y = 0; y < shapeMatrix.length; y++) {
+      for (let x = 0; x < shapeMatrix[y].length; x++) {
+        if (shapeMatrix[y][x]) {
+          let ax = posX + x;
+          let ay = posY + y;
+          if (ax < 0 || ax >= COLS || ay >= ROWS || (ay >= 0 && arena[ay][ax])) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  // Merge current piece into arena
+  function mergePiece() {
+    const shapeMatrix = currentPiece.shape[currentRotation];
+    for (let y = 0; y < shapeMatrix.length; y++) {
+      for (let x = 0; x < shapeMatrix[y].length; x++) {
+        if (shapeMatrix[y][x]) {
+          const ax = currentPos.x + x;
+          const ay = currentPos.y + y;
+          if (ay >= 0) {
+            arena[ay][ax] = currentPiece.color;
+          }
+        }
+      }
+    }
+  }
+
+  // Clear full lines and return count of cleared lines
+  function clearLines() {
+    let linesCleared = 0;
+    outer: for (let y = ROWS - 1; y >= 0; ) {
+      if (arena[y].every(cell => cell !== 0)) {
+        // Remove the line y
+        arena.splice(y, 1);
+        // Add a new empty line on top
+        arena.unshift(new Array(COLS).fill(0));
+        linesCleared++;
+        // do not decrement y because lines are shifted down
+      } else {
+        y--;
+      }
+    }
+    return linesCleared;
+  }
+
+  // Rotate current piece clockwise
+  function rotatePiece() {
+    const nextRotation = (currentRotation + 1) % currentPiece.shape.length;
+    // Wall kick system: try to move piece left/right to fit rotation.
+    if (!collide(currentPos.x, currentPos.y, nextRotation)) {
+      currentRotation = nextRotation;
+      return;
+    }
+    // try right
+    if (!collide(currentPos.x + 1, currentPos.y, nextRotation)) {
+      currentPos.x++;
+      currentRotation = nextRotation;
+      return;
+    }
+    // try left
+    if (!collide(currentPos.x - 1, currentPos.y, nextRotation)) {
+      currentPos.x--;
+      currentRotation = nextRotation;
+      return;
+    }
+    // else rotation fails, do nothing
+  }
+
+  // Move piece horizontally if possible
+  function movePiece(dir) {
+    const newX = currentPos.x + dir;
+    if (!collide(newX, currentPos.y, currentRotation)) {
+      currentPos.x = newX;
+    }
+  }
+
+  // Move piece down, return true if piece placed
+  function dropPiece() {
+    if (!collide(currentPos.x, currentPos.y + 1, currentRotation)) {
+      currentPos.y++;
+      return false;
+    } else {
+      // fix piece
+      mergePiece();
+      return true;
+    }
+  }
+
+  // Reset new piece at the top middle
+  function resetPiece() {
+    currentPiece = createPiece();
+    currentRotation = 0;
+    currentPos = {
+      x: Math.floor(COLS / 2) - Math.ceil(currentPiece.shape[0][0].length / 2),
+      y: -getTopEmptyRows(currentPiece.shape[currentRotation])
+    };
+    if (collide(currentPos.x, currentPos.y, currentRotation)) {
+      gameOver = true;
+      showGameOver();
+    }
+  }
+
+  // Count empty rows on top of a shape matrix
+  function getTopEmptyRows(matrix) {
+    let count = 0;
+    for (const row of matrix) {
+      if (row.some(cell => cell !== 0)) break;
+      count++;
+    }
+    return count;
+  }
+
+  // Game loop
+  function update(time = 0) {
+    if (gameOver) return;
+    const deltaTime = time - lastTime;
+    lastTime = time;
+
+    dropCounter += deltaTime;
+    if (dropCounter > dropInterval) {
+      dropCounter = 0;
+      if (dropPiece()) {
+        // piece placed, check for lines
+        const lines = clearLines();
+        if (lines > 0) {
+          pauseGame();
+          askQuestion();
+        }
+        if (!gameOver) resetPiece();
+      }
+    }
+    draw();
+    requestAnimationFrame(update);
+  }
+
+  // Draw everything
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawArena();
+    drawPiece();
+  }
+
+  // Handle keyboard input
+  function handleKey(e) {
+    if (gameOver) return;
+    switch (e.key) {
+      case 'ArrowLeft':
+        movePiece(-1);
+        dropCounter = 0;
+        break;
+      case 'ArrowRight':
+        movePiece(1);
+        dropCounter = 0;
+        break;
+      case 'ArrowDown':
+        if (!dropPiece()) {
+          dropCounter = 0;
+        } else {
+          const lines = clearLines();
+          if (lines > 0) {
+            pauseGame();
+            askQuestion();
+          }
+          if (!gameOver) resetPiece();
+        }
+        break;
+      case 'ArrowUp':
+        rotatePiece();
+        dropCounter = 0;
+        break;
+    }
+    draw();
+  }
+
+  // Pause the game loop (stop updates)
+  let gamePaused = false;
+  function pauseGame() {
+    gamePaused = true;
+  }
+  function resumeGame() {
+    gamePaused = false;
+    lastTime = 0;
+    dropCounter = 0;
+    update();
+  }
+
+  // Show question UI with random IT question
+  let currentQuestion = null;
+
+  function askQuestion() {
+    // Pick a random question
+    currentQuestion = questions[Math.floor(Math.random() * questions.length)];
+    questionTextEl.textContent = currentQuestion.question;
+
+    // Clear previous answers
+    answersContainer.innerHTML = '';
+
+    currentQuestion.answers.forEach((answer, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'answer-btn';
+      btn.textContent = answer;
+      btn.setAttribute('type', 'button');
+      btn.onclick = () => answerClicked(i);
+      btn.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          answerClicked(i);
+        }
+      };
+      answersContainer.appendChild(btn);
+    });
+
+    questionOverlay.style.display = 'flex';
+    // Focus first answer button for accessibility
+    answersContainer.firstChild.focus();
+  }
+
+  // Handle answer click
+  function answerClicked(index) {
+    const isCorrect = index === currentQuestion.correct;
+    if (isCorrect) {
+      stars++;
+      starCountEl.textContent = stars;
+    } else {
+      lives--;
+      lifeCountEl.textContent = lives;
+    }
+    questionOverlay.style.display = 'none';
+
+    if (lives <= 0) {
+      gameOver = true;
+      showGameOver();
+      return;
+    }
+    resumeGame();
+  }
+
+  // Show game over overlay
+  function showGameOver() {
+    gameOverOverlay.style.display = 'flex';
+  }
+
+  // Restart game
+  function restartGame() {
+    arena = createMatrix(COLS, ROWS);
+    stars = 0;
+    lives = 7;
+    starCountEl.textContent = stars;
+    lifeCountEl.textContent = lives;
+    gameOver = false;
+    gameOverOverlay.style.display = 'none';
+    resetPiece();
+    dropCounter = 0;
+    lastTime = 0;
+    gamePaused = false;
+    update();
+  }
+
+  // Initialize game
+  resetPiece();
+  update();
+
+  // Event listeners
+  window.addEventListener('keydown', handleKey);
+  restartBtn.addEventListener('click', restartGame);
+
+})();
+</script>
+<footer>Use arrow keys to move and rotate pieces. Clear lines and answer IT questions to earn stars. Don't lose all your lives!</footer>
+</body>
+</html>
+
